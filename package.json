@@ -1,0 +1,21 @@
+{
+  "name": "cookie-ia",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsc && node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^4.19.0",
+    "puppeteer": "^22.9.0"
+  }
+}
