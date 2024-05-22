@@ -3,8 +3,11 @@ import { existsSync, mkdirSync } from 'fs';
 import { BrowserManager } from './BrowserManager';
 import { GameController } from './GameController';
 import { createModel, trainModel } from './model';
+import { playGame, trainGameModel } from './Game';
 
-const SAVE_PATH = './models/dqn';
+// TensorFlow is imported here even if not used in this file to init the C backend
+
+export const SAVE_PATH = './models/dqn';
 
 (async () => {
 
@@ -19,67 +22,30 @@ const SAVE_PATH = './models/dqn';
     }
 
     const page = await browserManager.getGame();
-
     if (page) {
-        const gameController = new GameController(page);
-
-        console.log('Game launched successfully');
-
-        const model = createModel(22, 21);
-        const gamma = 0.2;
-        const epsilon = 0.8;
-
-        for (let episode = 0; episode < 1000; episode++) {
-
-            let state = await gameController.getGameState();
-
-            for (let step = 0; step < 100; step++) {
-
-                const actionIndex = Math.random() < epsilon ?
-                    Math.floor(Math.random() * (state.availableObjects.length + 1)) :
-                    1 + state.availableObjects.reduce((iMax, x, i, arr) => x.price > arr[iMax].price ? i : iMax, 0);
-
-                    
-                    process.stdout.write(`\rEpisode: ${episode}, Step: ${step}, Cookies: ${state.currentCookies.toFixed(2)}, CPS: ${state.cookiesPerSecond.toFixed(2)} Action: ${actionIndex}`);
-
-                    if(actionIndex === 0){
-                        await gameController.clickOnCookie();
-                    } else {
-                        await gameController.buyObject(actionIndex - 1);
-                    }
-
-                    const nextState = await gameController.getGameState();
-                    let reward = nextState.cookiesPerSecond - state.cookiesPerSecond;
-
-                    if(nextState.currentCookies > state.currentCookies && nextState.cookiesPerSecond === state.cookiesPerSecond){
-                        reward = 1;
-                    }
+        await playGame(new GameController(page));
+    }
 
 
-                    if(actionIndex > 0){
-                        if(state.availableObjects[actionIndex - 1].isLocked){
-                            reward = -10;
-                        }
-                    }
+    const model = createModel(22, 20);
+    const gamma = 0.6;
+    const epsilon = 0.5;
+    const episodeMax = 50;
+    const stepMax = 100;
 
-                    await trainModel(model, state, actionIndex, reward, nextState, false, gamma);
-                    state = nextState;
-            }
-        }
+    const trainings = Promise.all([
+        trainGameModel(1, browserManager, episodeMax, stepMax, model, gamma, epsilon),
+        trainGameModel(2, browserManager, episodeMax, stepMax, model, gamma, epsilon),
+        //trainGameModel(3, browserManager, episodeMax, stepMax, model, gamma, epsilon),
+        //trainGameModel(4, browserManager, episodeMax, stepMax, model, gamma, epsilon),
+    ]);
 
-        console.log('Training completed');
-        
-        if(!existsSync(SAVE_PATH)){
-            mkdirSync(SAVE_PATH);
-        }
+    await trainings;
 
-        await model.save(`file://${SAVE_PATH}`);
+    console.log('Training completed');
 
-
-        if(browserManager){
-            await browserManager.closeBrowser();
-        }
-        
+    if (browserManager) {
+        await browserManager.closeBrowser();
     }
 
 

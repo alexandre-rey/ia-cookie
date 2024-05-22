@@ -13,7 +13,7 @@ export class BrowserManager {
 
         try {
             this.browser = await puppeteer.launch({
-                headless: false,
+                headless: true,
                 defaultViewport: null,
                 args: ['--start-maximized'],
             });

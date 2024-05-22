@@ -16,6 +16,11 @@ function createModel(inputShape: number, outputShape: number): tf.Sequential {
         activation: 'relu'
     }));
 
+    /*model.add(tf.layers.dense({
+        units: 24,
+        activation: 'relu'
+    }));*/
+
     model.add(tf.layers.dense({
         units: outputShape,
         activation: 'linear'
@@ -31,12 +36,12 @@ function createModel(inputShape: number, outputShape: number): tf.Sequential {
 
 
 async function trainModel(model: tf.LayersModel, state: GameState, action: number, reward: number, nextState: GameState, done: boolean, gamma: number): Promise<void> {
-    
+
     const stateArray = [state.currentCookies, state.cookiesPerSecond];
-    stateArray.push(...state.availableObjects.map((o:CookieObject) => o.price));
+    stateArray.push(...state.availableObjects.map((o: CookieObject) => o.price));
 
     const nextStateArray = [nextState.currentCookies, nextState.cookiesPerSecond];
-    nextStateArray.push(...nextState.availableObjects.map((o:CookieObject) => o.price));
+    nextStateArray.push(...nextState.availableObjects.map((o: CookieObject) => o.price));
 
     // Convert GameState objects to input tensors
     const stateTensor = tf.tensor2d(stateArray, [1, stateArray.length]);
@@ -48,7 +53,7 @@ async function trainModel(model: tf.LayersModel, state: GameState, action: numbe
 
     // Calculate the target reward
     const targetReward = reward + (done ? 0 : gamma * maxQ);
-    
+
     // Get the current Q-values predictions for the current state to update only the action taken
     const currentState = model.predict(stateTensor) as tf.Tensor;
     const targetF = currentState.dataSync() as unknown as number[];
@@ -58,4 +63,13 @@ async function trainModel(model: tf.LayersModel, state: GameState, action: numbe
     await model.fit(stateTensor, tf.tensor2d([targetF]), { epochs: 1, verbose: 0 });
 }
 
-export { createModel, trainModel };
+async function predictAction(model: tf.LayersModel, state: GameState): Promise<number> {
+    const stateArray = [state.currentCookies, state.cookiesPerSecond];
+    stateArray.push(...state.availableObjects.map((o: CookieObject) => o.price));
+    const inputTensor = tf.tensor2d(stateArray, [1, stateArray.length]);
+    const predictions = model.predict(inputTensor, { verbose: true }) as tf.Tensor;
+    const actionIndex = predictions.argMax(1).dataSync()[0];
+    return actionIndex;
+}
+
+export { createModel, trainModel, predictAction };
